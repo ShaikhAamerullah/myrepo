@@ -1,0 +1,42 @@
+pipeline {
+    agent any 
+    stages {
+        stage('checkout') {
+            steps {
+                git 'https://github.com/ShaikhAamerullah/java-project-maven-new.git'
+            }
+        }
+        stage('compile') {
+            steps {
+                sh 'mvn compile'
+                sh 'mvn test'
+            }
+        }
+        stage('sonarqube') {
+            steps {
+                 withSonarQubeEnv('SonarQube') {
+                       sh '''
+                        mvn org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar \
+                        -Dsonar.projectKey=in.reyaz:myapp \
+                        -Dsonar.projectName=myapp
+                    '''
+                 }
+            }
+        }
+        stage('artifacts') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('s3artifatch') {
+            steps {
+                s3Upload consoleLogLevel: 'INFO', dontSetBuildResultOnFailure: false, dontWaitForConcurrentBuildCompletion: false, entries: [[bucket: 'hi-me1', excludedFile: '', flatten: false, gzipFiles: false, keepForever: false, managedArtifacts: false, noUploadOnFailure: false, selectedRegion: 'ap-south-1', showDirectlyInBrowser: false, sourceFile: '**/*.war', storageClass: 'STANDARD', uploadFromSlave: false, useServerSideEncryption: false]], pluginFailureResultConstraint: 'FAILURE', profileName: 'mybucket', userMetadata: []
+            }
+        }
+        stage('deployment') {
+            steps {
+                deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tom', path: '', url: 'http://13.203.195.120:8080')], contextPath: 'myfirstpro', war: '**/*.war'
+            }
+        }
+    }
+}
