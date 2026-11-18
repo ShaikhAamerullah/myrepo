@@ -1,0 +1,42 @@
+pipeline {
+    agent any
+    stages {
+        stage('checkout') {
+            steps {
+                git 'https://github.com/ShaikhAamerullah/java-project-maven-new.git'
+            }
+        }
+        stage('compile') {
+            steps {
+                sh 'mvn compile'
+                sh 'mvn test'
+            }
+        }
+        stage('sonarqube') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        mvn org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar \
+                        -Dsonar.projectKey=in.reyaz:myapp \
+                        -Dsonar.projectName=myapp
+                    '''
+                }
+            }
+        }
+        stage('package') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('artifacts') {
+            steps {
+                s3Upload consoleLogLevel: 'INFO', dontSetBuildResultOnFailure: false, dontWaitForConcurrentBuildCompletion: false, entries: [[bucket: 'hi-me3', excludedFile: '', flatten: false, gzipFiles: false, keepForever: false, managedArtifacts: false, noUploadOnFailure: false, selectedRegion: 'ap-south-1', showDirectlyInBrowser: false, sourceFile: '**/*.war', storageClass: 'STANDARD', uploadFromSlave: false, useServerSideEncryption: false]], pluginFailureResultConstraint: 'FAILURE', profileName: 'bucketmy', userMetadata: []
+            }
+        }
+        stage('deploy') {
+            steps {
+                ansiblePlaybook credentialsId: 'linuxcreds', disableHostKeyChecking: true, installation: 'ansible', inventory: '/etc/ansible/hosts', playbook: '/etc/ansible/deploy.yml', vaultTmpPath: ''
+            }
+        }
+    }
+}
